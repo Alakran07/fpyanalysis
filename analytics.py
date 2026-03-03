@@ -37,22 +37,29 @@ def run_product_analytics():
         # SWAP: Use PROD_NAME as the key instead of TEST
         product = record["PROD_NAME"]
         status = record["STATUS"]
+        area = record["TEST"]
 
         if product not in prod_quality:
-            prod_quality[product] = {"PASS": 0, "FAIL": 0}
+            prod_quality[product]= {}
 
+        if area not in prod_quality[product]:
+            prod_quality[product][area]= {"PASS": 0, "FAIL": 0}
+
+        if status in prod_quality[product][area]:
+            prod_quality[product][area][status] += 1
         # Note: We use .get() or check for existence to avoid errors with "ABORT"
         # but for now, sticking to your logic:
-        prod_quality[product][status] += 1
 
-    print(f"{'PRODUCT':<15} | {'YIELD (%)':<10} | {'TOTAL UNITS'}")
+    print(f"{'PRODUCT':<15} | {'AREA'} |{'YIELD (%)':<10} | {'TOTAL UNITS'}")
     print("-" * 50)
 
     for product, info in prod_quality.items():
-        total = info["PASS"] + info["FAIL"]
-        if total > 0:
-            fpy = (info["PASS"] / total) * 100
-            print(f"{product:<15} | {fpy:>9.2f}% | {total:>11}")
+        for area, info2 in info.items():
+            total = info2["PASS"] + info2["FAIL"]
+
+            if total > 0:
+                fpy = (info2["PASS"] / total) * 100
+                print(f"{product:<15} | {area} |{fpy:>9.2f}% | {total:>11}")
     print("-" * 50)
     pass
 
