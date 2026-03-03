@@ -1,4 +1,11 @@
-from test_specs import *
+# run_factory_analytics extract info from test records.json file then
+# Calculates yield per test staion.
+#
+# run_product_analytics extract info from test records.json file then
+# Calculates yield per product and per test station.
+#
+# In order to work, records.json needs exist to have information in the expected format.
+#
 import json
 
 

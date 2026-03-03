@@ -1,3 +1,13 @@
+#  create_records.py
+#
+# Create dummy test records create_test_records() and dump the test records in
+# records.json format. Parameters of records are found in test_specs.py
+# (site, prefix, number of records, etc can)
+# For future development, POD number can be added, so analysis can be also done
+# to POD level (to find if failures point to any specific pod)
+#
+
+
 import random
 import json
 import datetime
