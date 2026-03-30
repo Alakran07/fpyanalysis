@@ -1,75 +1,130 @@
-# run_factory_analytics extract info from test records.json file then
-# Calculates yield per test staion.
+# analytics.py
 #
-# run_product_analytics extract info from test records.json file then
-# Calculates yield per product and per test station.
+# run_factory_analytics  - FPY per test station (HOSTNAME)
+# run_product_analytics  - FPY per product and test area
+# run_station_analytics  - FPY per product, test area, and test station
 #
-# In order to work, records.json needs exist to have information in the expected format.
-#
+# records.json must exist before calling any of these functions.
+# Run create_records.py first if the file is missing.
+
 import json
+import os
+
+from test_specs import records_file
 
 
-def run_factory_analytics():
-    with open("records.json", "r") as f:
-        data = json.load(f)
+def load_records(filepath=records_file):
+    if not os.path.exists(filepath):
+        raise FileNotFoundError(
+            f"Records file not found: '{filepath}'. Run create_records first."
+        )
+    with open(filepath, "r") as fh:
+        return json.load(fh)
 
+
+def _fpy(counts):
+    """Return First Pass Yield percentage from a {'PASS': n, 'FAIL': n} dict."""
+    total = counts["PASS"] + counts["FAIL"]
+    if total == 0:
+        return None, 0
+    return (counts["PASS"] / total) * 100, total
+
+
+def run_factory_analytics(filepath=records_file):
+    data = load_records(filepath)
     quality = {}
-    for run_id,record  in data.items():
-        station = record["TEST"]
+
+    for record in data.values():
+        station = record["HOSTNAME"]
         status = record["STATUS"]
-        if station not in quality:
-             quality[station] = {"PASS":0, "FAIL":0}
-        quality[station][status] = quality[station][status] + 1
-    print("_"*50)
-    print(f"{'STATION':<15} | {'YIELD (%)':<10} ")
-    print("-" * 50)
+        quality.setdefault(station, {"PASS": 0, "FAIL": 0})
+        if status in quality[station]:
+            quality[station][status] += 1
 
-    for station,info in quality.items():
-        total = info["PASS"] + info["FAIL"]
-        fpy = (info["PASS"]/total) * 100
+    col_station, col_yield = 9, 10
+    width = col_station + col_yield + 7
 
-        print(f"{station:<15} | {fpy:<3.2f} % ")
-    print("-" * 50)
+    print("_" * width)
+    print(f"{'STATION':<{col_station}} | {'YIELD (%)':<{col_yield}}")
+    print("-" * width)
+    for station in sorted(quality):
+        fpy, total = _fpy(quality[station])
+        if fpy is not None:
+            print(f"{station:<{col_station}} | {fpy:>{col_yield}.2f}%")
+    print("-" * width)
 
-    pass
 
-
-def run_product_analytics():
-    with open("records.json", "r") as f:
-        data = json.load(f)
-
+def run_product_analytics(filepath=records_file):
+    data = load_records(filepath)
     prod_quality = {}
 
-    for run_id, record in data.items():
-        # SWAP: Use PROD_NAME as the key instead of TEST
+    for record in data.values():
         product = record["PROD_NAME"]
-        status = record["STATUS"]
         area = record["TEST"]
-
-        if product not in prod_quality:
-            prod_quality[product]= {}
-
-        if area not in prod_quality[product]:
-            prod_quality[product][area]= {"PASS": 0, "FAIL": 0}
-
+        status = record["STATUS"]
+        prod_quality.setdefault(product, {}).setdefault(area, {"PASS": 0, "FAIL": 0})
         if status in prod_quality[product][area]:
             prod_quality[product][area][status] += 1
-        # Note: We use .get() or check for existence to avoid errors with "ABORT"
-        # but for now, sticking to your logic:
 
-    print(f"{'PRODUCT':<15} | {'AREA'} |{'YIELD (%)':<10} | {'TOTAL UNITS'}")
-    print("-" * 50)
+    col_product, col_area, col_yield, col_total = 15, 5, 10, 11
+    width = col_product + col_area + col_yield + col_total + 13
 
-    for product, info in prod_quality.items():
-        for area, info2 in info.items():
-            total = info2["PASS"] + info2["FAIL"]
+    print("_" * width)
+    print(
+        f"{'PRODUCT':<{col_product}} | {'AREA':<{col_area}}"
+        f" | {'YIELD (%)':<{col_yield}} | {'TOTAL UNITS'}"
+    )
+    print("-" * width)
+    for product in sorted(prod_quality):
+        for area in sorted(prod_quality[product]):
+            fpy, total = _fpy(prod_quality[product][area])
+            if fpy is not None:
+                print(
+                    f"{product:<{col_product}} | {area:<{col_area}}"
+                    f" | {fpy:>{col_yield}.2f}% | {total:>{col_total}}"
+                )
+    print("-" * width)
 
-            if total > 0:
-                fpy = (info2["PASS"] / total) * 100
-                print(f"{product:<15} | {area} |{fpy:>9.2f}% | {total:>11}")
-    print("-" * 50)
-    pass
+
+def run_station_analytics(filepath=records_file):
+    data = load_records(filepath)
+    summary = {}
+
+    for record in data.values():
+        product = record["PROD_NAME"]
+        area = record["TEST"]
+        station = record["HOSTNAME"]
+        status = record["STATUS"]
+        summary.setdefault(product, {}).setdefault(area, {}).setdefault(
+            station, {"PASS": 0, "FAIL": 0}
+        )
+        if status in summary[product][area][station]:
+            summary[product][area][station][status] += 1
+
+    col_product, col_area, col_station, col_yield, col_total = 15, 5, 9, 10, 11
+    width = col_product + col_area + col_station + col_yield + col_total + 16
+
+    print("_" * width)
+    print(
+        f"{'PRODUCT':<{col_product}} | {'AREA':<{col_area}}"
+        f" | {'STATION':<{col_station}} | {'YIELD (%)':<{col_yield}}"
+        f" | {'TOTAL UNITS'}"
+    )
+    print("-" * width)
+    for product in sorted(summary):
+        for area in sorted(summary[product]):
+            for station in sorted(summary[product][area]):
+                fpy, total = _fpy(summary[product][area][station])
+                if fpy is not None:
+                    print(
+                        f"{product:<{col_product}} | {area:<{col_area}}"
+                        f" | {station:<{col_station}}"
+                        f" | {fpy:>{col_yield}.2f}% | {total:>{col_total}}"
+                    )
+    print("-" * width)
+
 
 if __name__ == "__main__":
     run_factory_analytics()
     run_product_analytics()
+    run_station_analytics()
